@@ -13,9 +13,9 @@ export default {
         }
     },
     created () {
-        if (!(this.$store.state.active_word_detail.id)) {
-            this.$store.dispatch('setActiveDetail',0)
-        }
+        // if (!(this.$store.state.active_word_detail.id)) {
+        //     this.$store.dispatch('setActiveDetail',0)
+        // }
     }
 }
 </script>

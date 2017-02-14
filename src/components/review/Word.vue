@@ -32,10 +32,16 @@ import { swiper, swiperSlide } from '../../../node_modules/vue-awesome-swiper'
 export default {
     data () {
         return {
-            knowThisWord : false
+            knowThisWord : false,
+            detailDataList : {}
         }
     },
     computed : {
+        activeWord () {
+            if (this.review_data_index < this.words_list.length) {
+              return this.$store.state.active_day_data.camp_data.word_list[this.review_data_index].en
+            }
+        },
         swiperOption () {
             var that = this
             return {
@@ -73,11 +79,11 @@ export default {
             return obj
         }
     },
-    watch : {
-        'review_data_index' (val) {
-            this.$store.dispatch('setActiveDetail',val)
-        }
-    },
+    // watch : {
+    //     'review_data_index' (val) {
+    //         this.$store.dispatch('setActiveDetail',val)
+    //     }
+    // },
     methods:  {
         know () {
             this.knowThisWord = true
@@ -85,32 +91,93 @@ export default {
             setTimeout(function () {
                 if (_this.review_data_index === (_this.words_list.length - 1)) {
                     _this.$store.dispatch('updateStudyState',{
-                        dayIndex : _this.$store.getters.today,
+                        dayIndex : _this.$store.state.active_day,
                         dayState : 3
                     })
-                    _this.$store.dispatch('updateReviewData',0)
-                    _this.$store.dispatch('setActiveDetail',0)
-                    _this.knowThisWord = false
-                    _this.$router.push('reviewcomplete')
+                    var newState = _this.$store.state.user_info.learning_state_list.join(',')
+                    _this.setNewState(newState)
                     return false
                 }else if (_this.review_data_index >= (_this.words_list.length - 1)) {
                     return false
                 }else{
                     _this.knowThisWord = false
                     var review_data_index  = (_this.review_data_index) + 1
+                    _this.$store.dispatch('setActiveDetail',_this.detailDataList[_this.words_list[review_data_index].en])
                     // _this.$router.push('reviewword?index=' + review_data_index)
                     _this.swiper.slideTo(review_data_index,600,false)
                     _this.updateReviewData(review_data_index)
                 }
             },400)
         },
+        setNewState (newState) {
+          var requestUrl = this.$store.state.host + '/study/set_learning_state'
+          var data = {
+              openId : this.$store.state.user_info.open_id,
+              newState : newState
+          }
+          this.$http.post(requestUrl,data).then(response => {
+              if (response.body.result === 'success') {
+                this.$store.dispatch('updateReviewData',0)
+                this.$store.dispatch('setActiveDetail',this.detailDataList[0])
+                this.knowThisWord = false
+                this.$router.push('reviewcomplete')
+              }
+          }, response => {
+            //error callback
+          })
+        },
         back () {
             var review_data_index  = (this.review_data_index) - 1
             this.updateReviewData(review_data_index)
-            this.swiper.slideTo(review_data_index - 1,600,false)
+            this.$store.dispatch('setActiveDetail',this.detailDataList[this.words_list[review_data_index].en])
+            this.swiper.slideTo(review_data_index ,600,false)
         },
         updateReviewData (index) {
             this.$store.dispatch('updateReviewData',index)
+        },
+        getDetail (word) {
+            var requestUrl = 'http://fun.baicizhan.com/data_maker/word_topic/list?page=1&value='+word+'&status=10'
+            this.$http.get(requestUrl).then(response => {
+              var data = response.body.data[0]
+              var wordDetail = {
+                  //id : '0_0_1', //第1期,第1天,第1个单词
+                  en : data.word,
+                  cn : data.mean_cn,
+                  meaning : data.mean_cn,
+                  pronounce : data.word_audio_name,//音频链接
+                  count : data.freq, // 考试频率
+                  // study_state : 0,//当前用户学习状态
+                  // review_state : 0,//当前用户复习状态
+                  audio : data.word_audio_name,
+                  detail : {
+                      test : {},
+                      film : {},
+                      music : {}
+                  }
+              }
+              var assetsBaseUrl = 'http://assets.baicizhan.com/ada/cet4/'
+              for (var i = 0; i < data.sentences.length; i++) {
+                  var detailType = ''
+                  if (data.sentences[i].from_type === 1) {
+                    detailType = 'test'
+                  }else if (data.sentences[i].from_type === 2) {
+                    detailType = 'film'
+                  }else if (data.sentences[i].from_type === 3) {
+                    detailType = 'music'
+                  }
+                  if (detailType !== '') {
+                    wordDetail.detail[detailType] = {
+                      img : (data.sentences[i].pic.indexOf('http') > -1)?(data.sentences[i].pic):(assetsBaseUrl + data.sentences[i].pic),
+                      eg : data.sentences[i].text_en,
+                      eg_meaning : data.sentences[i].text_cn,
+                      eg_source : data.sentences[i].from
+                    }
+                  }
+              }
+              this.detailDataList[wordDetail.en] = wordDetail
+            }, response => {
+              //error callback
+            })
         }
     },
     components: {
@@ -119,7 +186,10 @@ export default {
         swiperSlide
     },
     created () {
-        this.$store.dispatch('setActiveDetail',this.$store.state.review_data_index)
+        for (var i = 0; i < this.words_list.length; i++) {
+            var word = this.words_list[i].en
+            this.getDetail(word)
+        }
     }
 }
 

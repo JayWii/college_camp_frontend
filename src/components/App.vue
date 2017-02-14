@@ -19,20 +19,60 @@ export default {
         return {
         }
     },
+    methods : {
+      getDateData (dateStr) {
+          var strArr = dateStr.split('-')
+          var date = new Date(strArr[0],strArr[1]-1,strArr[2])
+          return date
+      }
+    },
     created () {
+      var requestUrl = this.$store.state.host + '/study/get_camp_info?count='+1+'&open_id='+123
+      this.$http.get(requestUrl).then(response => {
+        var data = response.body.data
+        var campData = {
+            title : data.camp_info.title,
+            sub_title : data.camp_info.sub_title,
+            time : {
+                start_time : data.camp_info.start_time.replace(/-0/g,'-'),
+                end_time : data.camp_info.end_time.replace(/-0/g,'-')
+            }
+        }
+        this.startTime = data.camp_info.start_time.replace(/-0/g,'-')
+        this.$store.dispatch('setCampInfo',campData)
+
+        var userInfo = {
+            open_id : data.user_info.open_id,
+            active_state: data.user_info.active_state,
+            daka_state: data.user_info.daka_state.split(',').map(function(i) {return i*1}),
+            user_name: data.user_info.user_name,
+            learning_state_list : (data.user_info.learning_state_list)?(data.user_info.learning_state_list.split(',').map(function(i) {return i*1})):[4]
+        }
+        this.$store.dispatch('updateUserInfo', userInfo)
+      }, response => {
+        //error callback
+      }).then(function () {
+        // 将未到时间的学习状态置为未到时间状态
         var todayIndex = this.$store.getters.today
         this.$store.dispatch('updateActiveDate',todayIndex)
         var originList = this.$store.state.user_info.learning_state_list
         for (var i = 0; i < this.$store.getters.days; i++) {
-            if (i >= originList.length) {
-                if (i <= (todayIndex)) {
-                    originList.push(1);
+            if (i <= todayIndex) {
+                if ((originList[i] === 4)||(!originList[i])) {
+                    originList[i] = 1
                 }else{
-                    originList.push(4);
+                    originList[i] = originList[i]
                 }
+            }else{
+                originList[i] = 4
+            }
+            var week = (this.getDateData(this.startTime).getDay() + i)%7
+            if ((week === 0)||(week === 6)) {
+                originList[i] = 0
             }
         }
         this.$store.dispatch('initStateList',originList)
+      })
     }
 }
 
@@ -41,6 +81,13 @@ export default {
 <style>
 @import '../assets/lib/reset.css';
 @import '../assets/lib/mobi.css';
+@import "../assets/lib/fade.css";
+@import "../assets/lib/zoom.css";
+
+.vodal-dialog {
+  text-align: center;
+  line-height: 100px;
+}
 
 html, body {
     -webkit-tap-highlight-color: transparent;

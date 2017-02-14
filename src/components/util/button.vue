@@ -9,16 +9,19 @@ export default {
     },
     methods : {
         ontouch (e) {
-            e.currentTarget.style.backgroundColor = '#ffc624'
+            e.currentTarget.className += ' btn-ontouch'
         },
         endtouch (e) {
-            e.currentTarget.style.backgroundColor = '#ffe43c'
+            e.currentTarget.className = e.currentTarget.className.replace(' btn-ontouch','')
         }
     }
 }
 </script>
 
 <style lang="css">
+.btn-ontouch {
+    background-color: #ffc624!important;
+}
 .btn-default {
     position: relative;
     width: 13rem;

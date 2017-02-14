@@ -10,10 +10,10 @@
                         {{ item.en }}
                     </div>
                     <div class="cn back">
-                        {{ item.cn }}
+                        {{ item.meaning }}
                     </div>
                 </div>
-                <span :data-index="item.id.split('_')[2]" @click="goToDetail"></span>
+                <span :data-word="item.en" :data-word-cn="item.meaning" @click="goToDetail"></span>
             </div>
         </div>
     </div>
@@ -35,9 +35,54 @@ export default {
             }
         },
         goToDetail (e) {
-            var wordIndex = e.currentTarget.getAttribute('data-index')
-            this.$store.dispatch('setActiveDetail',wordIndex)
-            this.$router.push('wordetail')
+            var word = e.currentTarget.getAttribute('data-word')
+            var wordMeaning = e.currentTarget.getAttribute('data-word-cn')
+            var requestUrl = 'http://fun.baicizhan.com/data_maker/word_topic/list?page=1&value='+word+'&status=10'
+            this.$http.get(requestUrl).then(response => {
+              var data = response.body.data[0]
+              var wordDetail = {
+                  //id : '0_0_1', //第1期,第1天,第1个单词
+                  en : data.word,
+                  cn : data.mean_cn,
+                  meaning : data.mean_cn,
+                  pronounce : data.word_audio_name,//音频链接
+                  count : data.freq, // 考试频率
+                  // study_state : 0,//当前用户学习状态
+                  // review_state : 0,//当前用户复习状态
+                  audio : data.word_audio_name,
+                  detail : {
+                      test : {},
+                      film : {},
+                      music : {}
+                  }
+              }
+              var assetsBaseUrl = 'http://assets.baicizhan.com/ada/cet4/'
+              for (var i = 0; i < data.sentences.length; i++) {
+                  var detailType = ''
+                  if (data.sentences[i].from_type === 1) {
+                    detailType = 'test'
+                  }else if (data.sentences[i].from_type === 2) {
+                    detailType = 'film'
+                  }else if (data.sentences[i].from_type === 3) {
+                    detailType = 'music'
+                  }
+                  if (detailType !== '') {
+                    wordDetail.detail[detailType] = {
+                      img : (data.sentences[i].pic.indexOf('http') > -1)?(data.sentences[i].pic):(assetsBaseUrl + data.sentences[i].pic),
+                      eg : data.sentences[i].text_en,
+                      eg_meaning : data.sentences[i].text_cn,
+                      eg_source : data.sentences[i].from
+                    }
+                  }
+              }
+              this.$store.dispatch('setActiveDetail',wordDetail)
+              this.$router.push('wordetail')
+              // console.log(wordDetail)
+            }, response => {
+              //error callback
+            })
+            // this.$store.dispatch('setActiveDetail',wordDetail)
+            // this.$router.push('wordetail')
         }
     },
     computed : {
@@ -117,6 +162,9 @@ export default {
     height: 46px;
     top: 1px;
     left: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 /* 前面板放在上面 */
 .front {

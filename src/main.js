@@ -2,6 +2,9 @@ import Vue from 'vue'
 import VueRouter from 'vue-router'
 import VueResource from 'vue-resource'
 
+import Vodal from 'vodal'
+Vue.component(Vodal.name, Vodal)
+
 import store from './vuex/store.js'
 
 import App from './components/App.vue'
@@ -123,7 +126,7 @@ function update_wx_title(title) {
    document.title = title
    var iframe = document.createElement("iframe")
    //必须设置，否则手机现实上会出问题，src属性为空将不能变更title
-   iframe.setAttribute("src", "/app/study/iframe.html")
+   iframe.setAttribute("src", "../iframe.html")
    iframe.style.display = "none"
    //必须设置，这一步是关键 -- 促使 title发生改变
    iframe.addEventListener('load', function() {

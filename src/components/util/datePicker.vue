@@ -1,15 +1,15 @@
 <template lang="html">
   <div>
       <div class="date-list">
-          <swiper :options="swiperOption">
+          <swiper :options="swiperOption" ref="mySwiper">
               <swiper-slide class="date-item flex-vertical flex-middle"
+                  v-for="(dateData, index) in dateListData"
                   :class="{'date-item-tody':(dateData.date === today), 'date-active':(index === active_day)}"
                   :data-index="index"
-                  v-for="(dateData, index) in dateListData"
                   @click.native="updateActiveDate">
                   <span class="week">{{ (dateData.date === today + 1)?'今天':(weeks[dateData.week]) }}</span>
                   <div class="date"
-                  v-bind:class="{'date-complete': ((user_info.learning_state_list[index] === 3)||((user_info.learning_state_list[index] === 0)&&(index <= today+1 ))) }">
+                  v-bind:class="{'date-complete': ((((dateData.week === 0)||(dateData.week === 6))&&(dateData.date <= today))||(user_info.learning_state_list[index] === 3)||((user_info.learning_state_list[index] === 0)&&(index <= today+1 ))) }">
                     {{ dateData.date }}
                   </div>
               </swiper-slide>
@@ -44,6 +44,117 @@ export default {
         },
         getDays (date) {
             return (Math.floor(date/1000/60/60/24))
+        },
+        getActiveDayData () {
+          var campCount = 1
+          var dateCount = 1
+          var requestWordsUrl = this.$store.state.host + '/study/get_word_list?date='+ campCount + '-' + dateCount
+          var requestReadingUrl = this.$store.state.host + '/study/get_reading_data?camp_count='+ campCount +'&date_count=' + dateCount
+          // 获取单词列表数据
+          this.$http.get(requestWordsUrl).then(response => {
+            var data = response.body.data.word_list
+            var wordList = []
+            var words = data.words.split('&')
+            var meanings = data.meaning.split('&')
+            for (var i = 0; i < words.length; i++) {
+              var word = {
+                en : words[i],
+                meaning : meanings[i],
+                detail : {}
+              }
+              wordList.push(word)
+            }
+            this.$store.dispatch('updateWordList',wordList)
+            this.getFirstDetail()
+          }, response => {
+            //error callback
+          })
+
+          // 获取扩展阅读数据
+          this.$http.get(requestReadingUrl).then(response => {
+            var wordsData = response.body.data.words
+            var readingData = []
+            for (var i = 0; i < wordsData.length; i++) {
+              var readingObj = {
+                word : wordsData[i].word,
+                phonetic : wordsData[i].phonetic,//音标
+                usage : [],
+                test_center : []
+              }
+              var usagesArr = (wordsData[i].usages == null)?[]:wordsData[i].usages.split('&')
+              var usagesEgArr = (wordsData[i].usages_eg == null)?[]:wordsData[i].usages_eg.split('&')
+              var keysArr = (wordsData[i].keys == null)?[]:wordsData[i].keys.split('&')
+              var keysEgArr = (wordsData[i].keys_eg == null)?[]:wordsData[i].keys_eg.split('&')
+              var keysSourceArr = (wordsData[i].keys_source == null)?[]:wordsData[i].keys_source.split('&')
+              for (var j = 0; j < usagesArr.length - 1; j++) {
+                var usage = {
+                  basic : usagesArr[j]?usagesArr[j].replace(/(^\'|\'$)/g,''):'',
+                  eg : usagesEgArr[j]?usagesEgArr[j].replace(/(^\'|\'$)/g,''):''
+                }
+                readingObj.usage.push(usage)
+              }
+              for (var k = 0; k < keysArr.length - 1; k++) {
+                var key = {
+                  basic : keysArr[k]?keysArr[k].replace(/(^\'|\'$)/g,''):'',
+                  eg : {
+                      content : keysEgArr[k]?keysEgArr[k].replace(/(^\'|\'$)/g,''):'',
+                      source : keysSourceArr[k]?keysSourceArr[k].replace(/(^\'|\'$)/g,''):''
+                  }
+                }
+                readingObj.test_center.push(key)
+              }
+              readingData.push(readingObj)
+            }
+            this.$store.dispatch('updateReadingData',readingData)
+          }, response => {
+            //error callback
+          })
+        },
+        getFirstDetail () {
+            var word = this.$store.state.active_day_data.camp_data.word_list[0].en
+            var requestUrl = 'http://fun.baicizhan.com/data_maker/word_topic/list?page=1&value='+word+'&status=10'
+            this.$http.get(requestUrl).then(response => {
+              var data = response.body.data[0]
+              var wordDetail = {
+                  //id : '0_0_1', //第1期,第1天,第1个单词
+                  en : data.word,
+                  cn : data.mean_cn,
+                  meaning : data.mean_cn,
+                  pronounce : data.word_audio_name,//音频链接
+                  count : data.freq, // 考试频率
+                  // study_state : 0,//当前用户学习状态
+                  // review_state : 0,//当前用户复习状态
+                  audio : data.word_audio_name,
+                  detail : {
+                      test : {},
+                      film : {},
+                      music : {}
+                  }
+              }
+              var assetsBaseUrl = 'http://assets.baicizhan.com/ada/cet4/'
+              for (var i = 0; i < data.sentences.length; i++) {
+                  var detailType = ''
+                  if (data.sentences[i].from_type === 1) {
+                    detailType = 'test'
+                  }else if (data.sentences[i].from_type === 2) {
+                    detailType = 'film'
+                  }else if (data.sentences[i].from_type === 3) {
+                    detailType = 'music'
+                  }
+                  if (detailType !== '') {
+                    wordDetail.detail[detailType] = {
+                      img : (data.sentences[i].pic.indexOf('http') > -1)?(data.sentences[i].pic):(assetsBaseUrl + data.sentences[i].pic),
+                      eg : data.sentences[i].text_en,
+                      eg_meaning : data.sentences[i].text_cn,
+                      eg_source : data.sentences[i].from
+                    }
+                  }
+              }
+              this.$store.dispatch('setActiveDetail',wordDetail)
+              // console.log(wordDetail)
+            }, response => {
+              //error callback
+            })
         }
     },
     computed: {
@@ -60,7 +171,7 @@ export default {
             var initialSlideIndex = 0
             var active_day = this.active_day
             //将swiper定位到激活的日期
-            if (active_day > 3) {
+            if (active_day >= 3) {
                 initialSlideIndex = active_day - 3
             }else{
                 initialSlideIndex = active_day
@@ -78,6 +189,9 @@ export default {
         days () {
             return this.$store.getters.days
         },
+        swiper () {
+            return this.$refs.mySwiper.swiper
+        },
         dateListData () {
             var list = []
             var listLen = this.days
@@ -94,6 +208,19 @@ export default {
     components: {
         swiper,
         swiperSlide
+    },
+    watch: {
+        'active_day' (val) {
+          this.getActiveDayData()
+        },
+        'swiperOption' (val) {
+          if ((val.initialSlide >= 0)&&(this.active_day >= 3)) {
+            this.swiper.slideTo(val.initialSlide, 400, false)
+          }
+        }
+    },
+    created () {
+      this.getActiveDayData()
     }
 }
 </script>

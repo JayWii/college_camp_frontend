@@ -11,15 +11,20 @@
                 <p class="cn">{{ detailData.meaning }}</p>
                 <div class="sound" @click="playVoice" @touchstart="ontouch" @touchend="endtouch">
                     <div class="sound-icon"></div>
-                    <audio id="voice" src="/src/assets/audio/miao.wav"></audio>
+                    <audio id="voice" :src="detailData.audio"></audio>
                 </div>
             </div>
             <swiper :options="swiperOption" ref="mySwiper">
                 <swiper-slide v-for="(detail, index) in detailData.detail" :data-index="index">
-                    <img :src="detail.img" class="word-img" alt="单词图片">
-                    <p class="eg">{{ detail.eg }}</p>
-                    <p class="eg-meaning">{{ detail.eg_meaning }}</p>
-                    <p class="time">{{ detail.eg_source }}</p>
+                    <div v-if="detail.img">
+                      <img :src="detail.img" class="word-img" alt="单词图片">
+                      <p class="eg">{{ detail.eg }}</p>
+                      <p class="eg-meaning">{{ detail.eg_meaning }}</p>
+                      <p class="time">{{ detail.eg_source }}</p>
+                    </div>
+                    <div v-if="!detail.img" class="no-data">
+                      暂无数据，请左右滑动
+                    </div>
                 </swiper-slide>
             </swiper>
         </div>
@@ -52,7 +57,7 @@ export default {
                 spaceBetween: 0,
                 lazyLoading: true,
                 onSlideChangeStart : function (swiper) {
-                    that.activeBtn = swiper.activeIndex
+                    that.$store.dispatch('changeDetailIndex',swiper.activeIndex)
                 }
             }
         }
@@ -71,7 +76,6 @@ export default {
             }else{
                 audio.pause()
             }
-
         },
         toggleActive (e) {
             var target = e.target
@@ -95,14 +99,29 @@ export default {
         swiperSlide
     },
     created () {
-        if (!(this.$store.state.active_word_detail.id)) {
-            this.$store.dispatch('setActiveDetail',0)
+        // if (!(this.$store.state.active_word_detail.id)) {
+        //     this.$store.dispatch('setActiveDetail',0)
+        // }
+        this.$store.dispatch('changeDetailIndex',0)
+    },
+    watch : {
+        'activeBtn' (val) {
+            if (document.location.href.indexOf('studystep') > -1) {
+              this.swiper.slideTo(val, 600, false)
+            }
         }
     }
 }
 </script>
 
 <style lang="css">
+.no-data {
+    height: 300px;
+    text-align: center;
+    line-height: 300px;
+    font-size: 20px;
+    color: #aaa;
+}
 .detail-wrap {
     padding: 8px 16px;
     box-sizing: border-box;
@@ -133,10 +152,11 @@ export default {
 .word-detail {
     min-height: 420px;
 }
-.word {
+.eg .word {
     margin-top: 30px;
     position: relative;
     padding: 0 3px;
+    padding-right: 36px;
     box-sizing: border-box;
 }
 .word p {

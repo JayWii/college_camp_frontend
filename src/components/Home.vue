@@ -20,10 +20,10 @@
                     </div>
                 </router-link>
                 <router-link to="/reading">
-                    <div class="reading flex-vertical flex-center">
-                        <div class="icon reading-icon"></div>
-                        <p>拓展阅读</p>
-                    </div>
+                  <div class="reading flex-vertical flex-center">
+                      <div class="icon reading-icon"></div>
+                      <p>拓展阅读</p>
+                  </div>
                 </router-link>
             </div>
             <router-link to="/study" :class="canLearning">
@@ -35,6 +35,9 @@
         </div>
         <!-- 分享引导 -->
         <my-mask v-if="goShare" @click.native="toggleShare"></my-mask>
+        <vodal :show="show" :width="150" :height="100" :closeButton="false" animation="zoom" @hide="show = false">
+            <div>加载中...</div>
+        </vodal>
     </div>
 </template>
 
@@ -47,7 +50,9 @@
         name : 'Home',
         data() {
             return {
-                goShare : false
+                goShare : false,
+                startTime : 0,
+                show : false
             }
         },
         computed: {
